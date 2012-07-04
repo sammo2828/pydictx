@@ -7,89 +7,100 @@ from pprint import pprint
 
 class Operations(dict):
     def __init__(self):
-    	self["$gt"] = self.gt
-		self["$lt"] = self.lt
-		
-	def gt(self, field, operand):
-		if field > operand:
-			return True
-		else:
-			return False
-	def lt(self, field, operand):
-		if field < operand:
-			return True
-		else:
-			return False
+        self["$gt"] = self.gt
+        self["$lt"] = self.lt
+    def gt(self, field, operand):
+        if field > operand:
+            return True
+        else:
+            return False
+    def lt(self, field, operand):
+        if field < operand:
+             return True
+        else:
+             return False
 
-class dixt(dict):
-	operations = Operations()
-	def __init__(self, *args, **kwargs):
-		dict.__init__(self, *args, **kwargs)
-		self.indices = {}
-		
-	def create_index(self, childkey):
-		self.indices[childkey] = index = {}
-		for key, value in self.iteritems():
-			if childkey in value:
-				# index each element of items that are list-like
-				if not isinstance(value[childkey], str):
-					try:
-						for item in value[childkey]:
-							try:
-								index[item].add(key)
-							except KeyError:
-								index[item] = set([key])
-					except TypeError:
-						# not iterable
-						try:
-							index[value[childkey]].add(key)
-						except KeyError:
-							index[value[childkey]] = set([key])
-	
-	def find(self, query):
-		"""Find using query dict
-		>>> for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
-		        print movie
-		"""
-		complex_queries = []
-		simple_queries = []
-		
-		# separate simple and complex queries for performance reasons
-		for childkey, conditions in query.iteritems():
-			if isinstance(conditions, dict):
-				complex_queries.append((childkey, conditions))
-			else:
-				simple_queries.append((childkey, conditions))
-		
-		# filter simple queries
-		if simple_queries:
-			results = set.intersection(*[self.indices[childkey][conditions] for childkey, conditions in simple_queries])
-		else:
-			results = self.iterkeys()
-		
-		# filter complex queries
-		for result in results:
-			outcome = True
-			for childkey, conditions in complex_queries:
-				print result, childkey, conditions
-				for operator, operand in conditions.iteritems():
-					if not self.operations[operator](self[result][childkey], operand):
-						outcome = False
-						break
-				if not outcome:
-					break
-		# yield results
-			if outcome:
-				yield result
-			
+class dictx(dict):
+    operations = Operations()
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.indices = {}
+    def create_index(self, childkey):
+        self.indices[childkey] = index = {}
+        for key, value in self.iteritems():
+            if childkey in value:
+                # index each element of items that are list-like
+                if not isinstance(value[childkey], str):
+                    try:
+                        for item in value[childkey]:
+                            try:
+                                index[item].add(key)
+                            except KeyError:
+                                index[item] = set([key])
+                    except TypeError:
+                        # not iterable
+                        try:
+                            index[value[childkey]].add(key)
+                        except KeyError:
+                            index[value[childkey]] = set([key])
+    def find(self, query):
+        """Find using query dict
+        >>> for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
+        ... print movie
+        """
+        # query object format: blah.find({lhs1: rhs1, lhs2: rhs2, etc.})
+        # lhs can be attribute name, e.g. 'year'
+        #     followed by rhs dict or simple type
+        # lhs can also be boolean operators, e.g. '$or' '$and'
+        #     followed by rhs list of query objects [{lhs1: rhs1}, {lhs1:
+        #     rhs2}]
+        if not query:
+            return set(self.keys())
+        sub_queries = []
+        advanced_queries = []
+        direct_queries = []
+        # separate simple and complex queries for performance reasons
+        for lhs, rhs in query.iteritems():
+            if isinstance(rhs, list):
+                sub_queries.append((lhs, rhs))
+            elif isinstance(rhs, dict):
+                advanced_queries.append((lhs, rhs))
+            else:
+                direct_queries.append((lhs, rhs))
+        # filter simple queries
+        if direct_queries:
+            results = set.intersection(*[self.indices[lhs][rhs] for lhs, rhs in direct_queries])
+        else:
+            results = set(self.keys())
+        # filter advanced queries
+        for lhs, rhs in advanced_queries:
+            advanced_results = set()
+            for result in results:
+                for operator, operand in rhs.iteritems():
+                    if not self.operations[operator](self[result][lhs], operand):
+                        break
+                else:
+                    advanced_results.add(result)
+            results = results.intersection(advanced_results)
+        # filter sub queries
+        for lhs, rhs in sub_queries:
+            if lhs == "$and":
+                sub_results = set.intersection(*[self.find(query) for query in rhs])
+            elif lhs == "$or":
+                sub_results = set.union(*[self.find(query) for query in rhs])
+            else:
+                raise Exception("bad condition. must be $and or $or")
+            results = results.intersection(sub_results)
+        # return results
+        return results
 
 # Create a dictionary-like database of movies
 
-movies = dixt(
+movies = dictx(
     Prometheus=
-        dixt(
-        	year        = 2012,
-        	rating      = 5,
+        dictx(
+            year        = 2012,
+            rating      = 5,
             directors   = ['Ridley Scott'],
             stars       = ['Noomi Rapace', 'Logan Marshall-Green',
                            'Michael Fassbender'],
@@ -100,27 +111,27 @@ movies = dixt(
                           'save the future of the human race.'
         ),
      Alien=
-     	dixt(
-     		year        = 1978,
-        	rating      = 4,
-     		directors   = ['Ridley Scott'],
-     		stars       = ['Sigourney Weaver', 'Tom Skerritt', 'John Hurt'],
-     		description = 'A mining ship, investigating a suspected SOS, ' \
-     		              'lands on a distant planet. The crew discovers '\
-     		              'some strange creatures and investigates.'
-     	),
+        dictx(
+                year        = 1978,
+                rating      = 4,
+                directors   = ['Ridley Scott'],
+                stars       = ['Sigourney Weaver', 'Tom Skerritt', 'John Hurt'],
+                description = 'A mining ship, investigating a suspected SOS, ' \
+                              'lands on a distant planet. The crew discovers '\
+                              'some strange creatures and investigates.'
+        ),
      Avatar=
-     	dixt(
-     		year        = 2009,
-        	rating      = 3,
-     		directors   = 'James Cameron',
-     		stars       = ['Sam Worthington', 'Zoe Saldana',
-     		               'Sigourney Weaver'],
-     		description = 'A paraplegic Marine dispatched to the moon ' \
-     		              'Pandora on a unique mission becomes torn between ' \
-     		              'following his orders and protecting the world he ' \
-     		              'feels is his home.'
-     	)
+        dictx(
+                year        = 2009,
+                rating      = 3,
+                directors   = 'James Cameron',
+                stars       = ['Sam Worthington', 'Zoe Saldana',
+                               'Sigourney Weaver'],
+                description = 'A paraplegic Marine dispatched to the moon ' \
+                              'Pandora on a unique mission becomes torn between ' \
+                              'following his orders and protecting the world he ' \
+                              'feels is his home.'
+        )
 )
 
 # What are some queries/filters that might be useful?
@@ -148,20 +159,24 @@ movies.create_index("directors")
 #pprint(movies.indices)
 
 #for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}}):
-#	print movie
+#       print movie
 
 #for movie in movies.find({'year': 1978}):
-#	print movie
+#       print movie
 
 
 #for movie in movies.find({'stars': 'Sigourney Weaver'}):
-#	pprint(movie)
+#       pprint(movie)
 
-for movie in movies.find({'stars': 'Sigourney Weaver', 'year': 2009}):
-	pprint(movie)
+#for movie in movies.find({'stars': 'Sigourney Weaver', 'year': 2009}):
+#    pprint(movie)
 
 #for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}}):
-#	print movie
+#       print movie
 
 #for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'rating': {'$gt': 2, '$lt': 5}}):
-#	print movie
+#       print movie
+
+#print movies.find({})
+
+print movies.find({'$or': [{'stars': 'Tom Skerritt'}, {'stars': 'Logan Marshall-Green'}]})
