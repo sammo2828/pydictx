@@ -45,8 +45,7 @@ class dictx(dict):
                             index[value[childkey]] = set([key])
     def find(self, query):
         """Find using query dict
-        >>> for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
-        ... print movie
+        >>> print movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
         """
         # query object format: blah.find({lhs1: rhs1, lhs2: rhs2, etc.})
         # lhs can be attribute name, e.g. 'year'
@@ -158,25 +157,20 @@ movies.create_index("stars")
 movies.create_index("directors")
 #pprint(movies.indices)
 
-#for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}}):
-#       print movie
+#print movies.find({'year': {'$gt': 1970, '$lt': 2010}}):
 
-#for movie in movies.find({'year': 1978}):
-#       print movie
+#print movies.find({'year': 1978}):
 
+#print movies.find({'stars': 'Sigourney Weaver'}):
 
-#for movie in movies.find({'stars': 'Sigourney Weaver'}):
-#       pprint(movie)
+#print movies.find({'stars': 'Sigourney Weaver', 'year': 2009}):
 
-#for movie in movies.find({'stars': 'Sigourney Weaver', 'year': 2009}):
-#    pprint(movie)
+#print movies.find({'year': {'$gt': 1970, '$lt': 2010}}):
 
-#for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}}):
-#       print movie
-
-#for movie in movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'rating': {'$gt': 2, '$lt': 5}}):
-#       print movie
+#print movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'rating': {'$gt': 2, '$lt': 5}}):
 
 #print movies.find({})
 
 print movies.find({'$or': [{'stars': 'Tom Skerritt'}, {'stars': 'Logan Marshall-Green'}]})
+
+print movies.find({'$and': [{'rating': {'$gt': 3}}, {'directors': 'Ridley Scott'}, {'year': 2012}]})
