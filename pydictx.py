@@ -9,6 +9,8 @@ class Operations(dict):
     def __init__(self):
         self["$gt"] = self.gt
         self["$lt"] = self.lt
+        self["$gte"] = self.gte
+        self["$lte"] = self.lte
     def gt(self, field, operand):
         if field > operand:
             return True
@@ -19,6 +21,16 @@ class Operations(dict):
              return True
         else:
              return False
+    def gte(self, field, operand):
+        if field >= operand:
+            return True
+        else:
+            return False
+    def lte(self, field, operand):
+        if field <= operand:
+            return True
+        else:
+            return False
 
 class dictx(dict):
     operations = Operations()
