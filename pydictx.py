@@ -33,10 +33,14 @@ set(['Alien'])
 >>> movies.find({'stars': {'$in': ['Sigourney Weaver', 'Tom Skerritt', 'Sam Worthington']}})
 set(['Alien', 'Avatar'])
 
-
 >>> movies.find({'directors': {'$exists': True}})
 set(['Alien', 'Prometheus', 'Avatar'])
 
+>>> movies.find({'directors': {'$ne': 'Ridley Scott'}})
+set(['Avatar'])
+
+>>> print movies.find({'stars': {'$ne': 'Sigourney Weaver'}})
+set(['Prometheus'])
 
 """
 
@@ -52,6 +56,7 @@ class Operations(dict):
         self["$all"] = self._all
         self["$in"] = self._in
         self["$exists"] = self._exists
+        self["$ne"] = self._ne
     def _gt(self, left, right):
         return set.union(*[value for key, value in self.d.indices[left].iteritems() if key > right])
     def _lt(self, left, right):
@@ -66,6 +71,8 @@ class Operations(dict):
         return set.union(*[self.d.indices[left][key] for key in right])
     def _exists(self, left, right):
         return set.union(*[value for value in self.d.indices[left].itervalues()])
+    def _ne(self, left, right):
+        return set(self.d.iterkeys()) - self.d.indices[left][right]
 
 class dictx(dict):
     def __init__(self, *args, **kwargs):
