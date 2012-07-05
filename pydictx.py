@@ -15,53 +15,62 @@ set(['Alien', 'Avatar'])
 >>> movies.find({'stars': 'Sigourney Weaver', 'year': 2009})
 set(['Avatar'])
 
->>> movies.find({'year': {'$gt': 1970, '$lt': 2010}})
+>>> movies.find({'year': {'$lt': 2010}})
 set(['Alien', 'Avatar'])
 
->>> movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'rating': {'$gt': 2, '$lt': 5}})
-set(['Alien', 'Avatar'])
+>>> movies.find({'year': {'$gt': 1980, '$lt': 2010}})
+set(['Avatar'])
+
+#>>> movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'rating': {'$gt': 2, '$lt': 5}})
+#set(['Alien', 'Avatar'])
 
 >>> movies.find({'$or': [{'stars': 'Tom Skerritt'}, {'stars': 'Logan Marshall-Green'}]})
 set(['Alien', 'Prometheus'])
 
 >>> movies.find({'stars': {'$all': ['Sigourney Weaver', 'Tom Skerritt']}})
-set
+set(['Alien'])
+
+>>> movies.find({'stars': {'$in': ['Sigourney Weaver', 'Tom Skerritt', 'Sam Worthington']}})
+set(['Alien', 'Avatar'])
+
+
+>>> movies.find({'directors': {'$exists': True}})
+set(['Alien', 'Prometheus', 'Avatar'])
+
 
 """
 
 from pprint import pprint
 
 class Operations(dict):
-    def __init__(self):
-        self["$gt"] = self.gt
-        self["$lt"] = self.lt
-        self["$gte"] = self.gte
-        self["$lte"] = self.lte
-    def gt(self, field, operand):
-        if field > operand:
-            return True
-        else:
-            return False
-    def lt(self, field, operand):
-        if field < operand:
-             return True
-        else:
-             return False
-    def gte(self, field, operand):
-        if field >= operand:
-            return True
-        else:
-            return False
-    def lte(self, field, operand):
-        if field <= operand:
-            return True
-        else:
-            return False
+    def __init__(self, d):
+        self.d = d
+        self["$gt"] = self._gt
+        self["$lt"] = self._lt
+        self["$gte"] = self._gte
+        self["$lte"] = self._lte
+        self["$all"] = self._all
+        self["$in"] = self._in
+        self["$exists"] = self._exists
+    def _gt(self, left, right):
+        return set.union(*[value for key, value in self.d.indices[left].iteritems() if key > right])
+    def _lt(self, left, right):
+        return set.union(*[value for key, value in self.d.indices[left].iteritems() if key < right])
+    def _gte(self, left, right):
+        return set.union(*[value for key, value in self.d.indices[left].iteritems() if key >= right])
+    def _lte(self, left, right):
+        return set.union(*[value for key, value in self.d.indices[left].iteritems() if key <= right])
+    def _all(self, left, right):
+        return set.intersection(*[self.d.indices[left][key] for key in right])
+    def _in(self, left, right):
+        return set.union(*[self.d.indices[left][key] for key in right])
+    def _exists(self, left, right):
+        return set.union(*[value for value in self.d.indices[left].itervalues()])
 
 class dictx(dict):
-    operations = Operations()
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
+        self.operations = Operations(self)
         self.indices = {}
     def create_index(self, childkey):
         self.indices[childkey] = index = {}
@@ -81,6 +90,11 @@ class dictx(dict):
                             index[value[childkey]].add(key)
                         except KeyError:
                             index[value[childkey]] = set([key])
+                else:
+                    try:
+                        index[value[childkey]].add(key)
+                    except KeyError:
+                        index[value[childkey]] = set([key])
     def find(self, query):
         """Find using query dict
         #>>> print movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
@@ -111,14 +125,7 @@ class dictx(dict):
             results = set(self.keys())
         # filter advanced queries
         for lhs, rhs in advanced_queries:
-            advanced_results = set()
-            for result in results:
-                for operator, operand in rhs.iteritems():
-                    if not self.operations[operator](self[result][lhs], operand):
-                        break
-                else:
-                    advanced_results.add(result)
-            results = results.intersection(advanced_results)
+            results = results.intersection(*[self.operations[operator](lhs, operand) for operator, operand in rhs.iteritems()])
         # filter sub queries
         for lhs, rhs in sub_queries:
             if lhs == "$and":
@@ -198,4 +205,4 @@ if __name__ == "__main__":
         
 
     import doctest
-    doctest.testmod(verbose=0, report=False)
+    doctest.testmod(verbose=2, report=False)
