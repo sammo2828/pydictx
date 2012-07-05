@@ -42,9 +42,14 @@ set(['Avatar'])
 >>> print movies.find({'stars': {'$ne': 'Sigourney Weaver'}})
 set(['Prometheus'])
 
-"""
+>>> print movies.find({'year': {'$nin': [1978, 2012]}})
+set(['Avatar'])
 
-from pprint import pprint
+>>> print movies.find({'stars': {'$nin': ['John Hurt', 'Zoe Saldana']}})
+set(['Prometheus'])
+
+
+"""
 
 class Operations(dict):
     def __init__(self, d):
@@ -57,6 +62,7 @@ class Operations(dict):
         self["$in"] = self._in
         self["$exists"] = self._exists
         self["$ne"] = self._ne
+        self["$nin"] = self._nin
     def _gt(self, left, right):
         return set.union(*[value for key, value in self.d.indices[left].iteritems() if key > right])
     def _lt(self, left, right):
@@ -73,6 +79,8 @@ class Operations(dict):
         return set.union(*[value for value in self.d.indices[left].itervalues()])
     def _ne(self, left, right):
         return set(self.d.iterkeys()) - self.d.indices[left][right]
+    def _nin(self, left, right):
+        return set(self.d.iterkeys()) - self._in(left, right)
 
 class dictx(dict):
     def __init__(self, *args, **kwargs):
@@ -147,6 +155,7 @@ class dictx(dict):
 
 if __name__ == "__main__":
     
+    from pprint import pprint
     # Create a dictionary-like database of movies
     
     movies = dictx(
