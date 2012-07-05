@@ -24,9 +24,6 @@ set(['Avatar'])
 #>>> movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'rating': {'$gt': 2, '$lt': 5}})
 #set(['Alien', 'Avatar'])
 
->>> movies.find({'$or': [{'stars': 'Tom Skerritt'}, {'stars': 'Logan Marshall-Green'}]})
-set(['Alien', 'Prometheus'])
-
 >>> movies.find({'stars': {'$all': ['Sigourney Weaver', 'Tom Skerritt']}})
 set(['Alien'])
 
@@ -48,6 +45,16 @@ set(['Avatar'])
 >>> print movies.find({'stars': {'$nin': ['John Hurt', 'Zoe Saldana']}})
 set(['Prometheus'])
 
+>>> print movies.find({'$and': [{'stars': 'Sigourney Weaver'}, {'stars': 'Tom Skerritt'}, {'stars': 'John Hurt'}]})
+set(['Alien'])
+
+>>> movies.find({'$or': [{'stars': 'Tom Skerritt'}, {'stars': 'Logan Marshall-Green'}]})
+set(['Alien', 'Prometheus'])
+
+>>> movies.find({'$nor': [{'stars': 'Tom Skerritt'}, {'stars': 'Logan Marshall-Green'}]})
+set(['Avatar'])
+
+
 
 """
 
@@ -63,6 +70,10 @@ class Operations(dict):
         self["$exists"] = self._exists
         self["$ne"] = self._ne
         self["$nin"] = self._nin
+        self["$and"] = self._and
+        self["$or"] = self._or
+        self["$nor"] = self._nor
+        
     def _gt(self, left, right):
         return set.union(*[value for key, value in self.d.indices[left].iteritems() if key > right])
     def _lt(self, left, right):
@@ -81,6 +92,12 @@ class Operations(dict):
         return set(self.d.iterkeys()) - self.d.indices[left][right]
     def _nin(self, left, right):
         return set(self.d.iterkeys()) - self._in(left, right)
+    def _and(self, expressions):
+        return set.intersection(*[self.d.find(query) for query in expressions])
+    def _or(self, expressions):
+        return set.union(*[self.d.find(query) for query in expressions])
+    def _nor(self, expressions):
+        return set(self.d.iterkeys()) - self._or(expressions)
 
 class dictx(dict):
     def __init__(self, *args, **kwargs):
@@ -143,13 +160,7 @@ class dictx(dict):
             results = results.intersection(*[self.operations[operator](lhs, operand) for operator, operand in rhs.iteritems()])
         # filter sub queries
         for lhs, rhs in sub_queries:
-            if lhs == "$and":
-                sub_results = set.intersection(*[self.find(query) for query in rhs])
-            elif lhs == "$or":
-                sub_results = set.union(*[self.find(query) for query in rhs])
-            else:
-                raise Exception("bad condition. must be $and or $or")
-            results = results.intersection(sub_results)
+            results = results.intersection(self.operations[lhs](rhs))
         # return results
         return results
 
