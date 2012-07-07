@@ -103,19 +103,28 @@ class IndexedList(list):
     def __init__(self, *args, **kwargs):
         list.__init__(self, *args, **kwargs)
         self.parent = None
-    def set_parent(self, parent, attrib):
+    def set_parent(self, parent, _id):
         self.parent = parent
-        self.attrib = attrib
-        for item in self:
-            self.parent.update_index([attrib], item)
+        self._id = _id
+        for i, item in enumerate(self):
+            if isinstance(item, dict):
+                indexed_document = IndexedDict(item)
+                indexed_document.set_parent(self.parent, _id)
+                self[i] = indexed_document
+            elif isinstance(item, list):
+                indexed_list = IndexedList(item)
+                indexed_list.set_parent(self.parent, _id)
+                self[i] = indexed_list
+            else:
+                self.parent.update_index([_id], item)
 
 class IndexedDict(dict):
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
         self.parent = None
-    def set_parent(self, parent, attrib):
+    def set_parent(self, parent, _id):
         self.parent = parent
-        self.attrib = attrib # in future rename to _id
+        self._id = _id
         for key, value in self.iteritems():
             if isinstance(value, dict):
                 indexed_document = IndexedDict(value)
@@ -128,7 +137,7 @@ class IndexedDict(dict):
             else:
                 self.update_index([key], value)
     def update_index(self, key, value):
-        key.append(self.attrib)
+        key.append(self._id)
         self.parent.update_index(key, value)
 
 class dictx(dict):
@@ -198,6 +207,7 @@ if __name__ == "__main__":
     movies.insert(
         {
             'name'        : 'Prometheus',
+            'blah'        : [{'hello': 1234, 'world': 5678}, "jkajskldf", [1, 2, 3]],
             'year'        : 2012,
             'rating'      : 5,
             'directors'   : ['Ridley Scott'],
@@ -211,6 +221,7 @@ if __name__ == "__main__":
         },
         {
             'name'        : 'Alien',
+            'blah'        : [{'hello': 1234}, "jkajskldf", [1, 2, 3]],
             'year'        : 1978,
             'rating'      : 4,
             'directors'   : ['Ridley Scott'],
