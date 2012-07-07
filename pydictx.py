@@ -99,34 +99,58 @@ class Operations(dict):
     def _nor(self, expressions):
         return set(self.d.iterkeys()) - self._or(expressions)
 
+class IndexedList(list):
+    def __init__(self, *args, **kwargs):
+        list.__init__(self, *args, **kwargs)
+        self.parent = None
+    def set_parent(self, parent, attrib):
+        self.parent = parent
+        self.attrib = attrib
+        for item in self:
+            self.parent.update_index([attrib], item)
+
+class IndexedDict(dict):
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.parent = None
+    def set_parent(self, parent, attrib):
+        self.parent = parent
+        self.attrib = attrib # in future rename to _id
+        for key, value in self.iteritems():
+            if isinstance(value, dict):
+                indexed_document = IndexedDict(value)
+                indexed_document.set_parent(self, key)
+                self[key] = indexed_document
+            elif isinstance(value, list):
+                indexed_list = IndexedList(value)
+                indexed_list.set_parent(self, key)
+                self[key] = indexed_list
+            else:
+                self.update_index([key], value)
+    def update_index(self, key, value):
+        key.append(self.attrib)
+        self.parent.update_index(key, value)
+
 class dictx(dict):
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
         self.operations = Operations(self)
         self.indices = {}
-    def create_index(self, childkey):
-        self.indices[childkey] = index = {}
-        for key, value in self.iteritems():
-            if childkey in value:
-                # index each element of items that are list-like
-                if not isinstance(value[childkey], str):
-                    try:
-                        for item in value[childkey]:
-                            try:
-                                index[item].add(key)
-                            except KeyError:
-                                index[item] = set([key])
-                    except TypeError:
-                        # not iterable
-                        try:
-                            index[value[childkey]].add(key)
-                        except KeyError:
-                            index[value[childkey]] = set([key])
-                else:
-                    try:
-                        index[value[childkey]].add(key)
-                    except KeyError:
-                        index[value[childkey]] = set([key])
+    def insert(self, *args):
+        for document in args:
+            indexed_document = IndexedDict(document)
+            indexed_document.set_parent(self, indexed_document['name']) # in future use gid
+            self[indexed_document['name']] = indexed_document
+    def update_index(self, key, value):
+        _id = ".".join(key[-2::-1])
+        try:
+            self.indices[_id][value].add(key[-1])
+        except KeyError:
+            try:
+                self.indices[_id][value] = set([key[-1]])
+            except KeyError:
+                self.indices[_id] = {}
+                self.indices[_id][value] = set([key[-1]])
     def find(self, query):
         """Find using query dict
         #>>> print movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
@@ -163,54 +187,53 @@ class dictx(dict):
             results = results.intersection(self.operations[lhs](rhs))
         # return results
         return results
+        
 
 if __name__ == "__main__":
     
     from pprint import pprint
     # Create a dictionary-like database of movies
     
-    movies = dictx(
-        Prometheus=
-            dictx(
-                year        = 2012,
-                rating      = 5,
-                directors   = ['Ridley Scott'],
-                stars       = ['Noomi Rapace', 'Logan Marshall-Green',
-                               'Michael Fassbender'],
-                description = 'A team of explorers discover a clue to the ' \
-                              'origins of mankind on Earth, leading them on a ' \
-                              'journey to the darkest corners of the universe. ' \
-                              'There, they must fight a terrifying battle to ' \
-                              'save the future of the human race.'
-            ),
-         Alien=
-            dictx(
-                    year        = 1978,
-                    rating      = 4,
-                    directors   = ['Ridley Scott'],
-                    stars       = ['Sigourney Weaver', 'Tom Skerritt', 'John Hurt'],
-                    description = 'A mining ship, investigating a suspected SOS, ' \
-                                  'lands on a distant planet. The crew discovers '\
-                                  'some strange creatures and investigates.'
-            ),
-         Avatar=
-            dictx(
-                    year        = 2009,
-                    rating      = 3,
-                    directors   = 'James Cameron',
-                    stars       = ['Sam Worthington', 'Zoe Saldana',
-                                   'Sigourney Weaver'],
-                    description = 'A paraplegic Marine dispatched to the moon ' \
-                                  'Pandora on a unique mission becomes torn between ' \
-                                  'following his orders and protecting the world he ' \
-                                  'feels is his home.'
-            )
+    movies = dictx()
+    movies.insert(
+        {
+            'name'        : 'Prometheus',
+            'year'        : 2012,
+            'rating'      : 5,
+            'directors'   : ['Ridley Scott'],
+            'stars'       : ['Noomi Rapace', 'Logan Marshall-Green',
+                             'Michael Fassbender'],
+            'description' : 'A team of explorers discover a clue to the ' \
+                            'origins of mankind on Earth, leading them on a ' \
+                            'journey to the darkest corners of the universe. ' \
+                            'There, they must fight a terrifying battle to ' \
+                            'save the future of the human race.'
+        },
+        {
+            'name'        : 'Alien',
+            'year'        : 1978,
+            'rating'      : 4,
+            'directors'   : ['Ridley Scott'],
+            'stars'       : ['Sigourney Weaver', 'Tom Skerritt', 'John Hurt'],
+            'description' : 'A mining ship, investigating a suspected SOS, ' \
+                            'lands on a distant planet. The crew discovers '\
+                            'some strange creatures and investigates.'
+        },
+        {
+            'name'        : 'Avatar',
+            'year'        : 2009,
+            'rating'      : 3,
+            'directors'   : 'James Cameron',
+            'stars'       : ['Sam Worthington', 'Zoe Saldana',
+                             'Sigourney Weaver'],
+            'description' : 'A paraplegic Marine dispatched to the moon ' \
+                            'Pandora on a unique mission becomes torn between ' \
+                            'following his orders and protecting the world he ' \
+                            'feels is his home.'
+        }
     )
-    movies.create_index("year")
-    movies.create_index("rating")
-    movies.create_index("stars")
-    movies.create_index("directors")
-    #pprint(movies.indices)
+    
+    pprint(movies.indices)
 
     # What are some queries/filters that might be useful?
     
