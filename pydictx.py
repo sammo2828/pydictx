@@ -103,42 +103,57 @@ class IndexedList(list):
     def __init__(self, *args, **kwargs):
         list.__init__(self, *args, **kwargs)
         self.parent = None
+    def __setitem__(self, i, item):
+        if isinstance(item, dict):
+            indexed_document = IndexedDict(item)
+            indexed_document.set_parent(self.parent, self._id)
+            list.__setitem__(self, i, indexed_document)
+        elif isinstance(item, list):
+            indexed_list = IndexedList(item)
+            indexed_list.set_parent(self.parent, self._id)
+            list.__setitem__(self, i, indexed_list)
+        else:
+            list.__setitem__(self, i, item)
+            self.parent.update_index([self._id], item)
     def set_parent(self, parent, _id):
         self.parent = parent
         self._id = _id
         for i, item in enumerate(self):
-            if isinstance(item, dict):
-                indexed_document = IndexedDict(item)
-                indexed_document.set_parent(self.parent, _id)
-                self[i] = indexed_document
-            elif isinstance(item, list):
-                indexed_list = IndexedList(item)
-                indexed_list.set_parent(self.parent, _id)
-                self[i] = indexed_list
-            else:
-                self.parent.update_index([_id], item)
+            self[i] = item
 
 class IndexedDict(dict):
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
         self.parent = None
+    def __setitem__(self, key, value):
+        if isinstance(value, dict):
+            indexed_document = IndexedDict(value)
+            indexed_document.set_parent(self, key)
+            dict.__setitem__(self, key, indexed_document)
+        elif isinstance(value, list):
+            indexed_list = IndexedList(value)
+            indexed_list.set_parent(self, key)
+            dict.__setitem__(self, key, indexed_list)
+        else:
+            try:
+                oldvalue = self[key]
+            except:
+                pass
+            else:
+                self.remove_index([key], oldvalue)
+            dict.__setitem__(self, key, value)
+            self.update_index([key], value)
     def set_parent(self, parent, _id):
         self.parent = parent
         self._id = _id
         for key, value in self.iteritems():
-            if isinstance(value, dict):
-                indexed_document = IndexedDict(value)
-                indexed_document.set_parent(self, key)
-                self[key] = indexed_document
-            elif isinstance(value, list):
-                indexed_list = IndexedList(value)
-                indexed_list.set_parent(self, key)
-                self[key] = indexed_list
-            else:
-                self.update_index([key], value)
+            self[key] = value
     def update_index(self, key, value):
         key.append(self._id)
         self.parent.update_index(key, value)
+    def remove_index(self, key, value):
+        key.append(self._id)
+        self.parent.remove_index(key, value)
 
 class dictx(dict):
     def __init__(self, *args, **kwargs):
@@ -160,6 +175,15 @@ class dictx(dict):
             except KeyError:
                 self.indices[_id] = {}
                 self.indices[_id][value] = set([key[-1]])
+    def remove_index(self, key, value):
+        _id = ".".join(key[-2::-1])
+        try:
+            self.indices[_id][value].remove(key[-1])
+            if not self.indices[_id][value]:
+                del self.indices[_id][value]
+        except:
+            pass
+        
     def find(self, query):
         """Find using query dict
         #>>> print movies.find({'year': {'$gt': 1970, '$lt': 2010}, 'stars': 'Sigourney Weaver'}):
@@ -243,6 +267,10 @@ if __name__ == "__main__":
                             'feels is his home.'
         }
     )
+    
+    print movies['Avatar']['rating']
+    movies['Avatar']['rating'] = 5
+    print movies['Avatar']['rating']
     
     pprint(movies.indices)
 
