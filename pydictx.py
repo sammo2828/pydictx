@@ -113,6 +113,8 @@ class IndexedList(list):
             indexed_list.set_parent(self.parent, self._id)
             list.__setitem__(self, i, indexed_list)
         else:
+            oldvalue = self[i]
+            self.parent.remove_index([self._id], oldvalue)
             list.__setitem__(self, i, item)
             self.parent.update_index([self._id], item)
     def set_parent(self, parent, _id):
@@ -267,13 +269,6 @@ if __name__ == "__main__":
                             'feels is his home.'
         }
     )
-    
-    print movies['Avatar']['rating']
-    movies['Avatar']['rating'] = 5
-    print movies['Avatar']['rating']
-    
-    pprint(movies.indices)
-
     # What are some queries/filters that might be useful?
     
     ## Find by exact name:
@@ -295,3 +290,17 @@ if __name__ == "__main__":
 
     import doctest
     doctest.testmod(verbose=2, report=False)
+
+    
+    # change dictionary attributes
+    print movies['Avatar']['rating']
+    movies['Avatar']['rating'] = 5
+    print movies['Avatar']['rating']
+    
+    # change list items
+    print movies['Avatar']['stars']
+    movies['Avatar']['stars'][2] = "Tom Skerritt"
+    print movies['Avatar']['stars']
+    
+    pprint(movies.indices)
+
