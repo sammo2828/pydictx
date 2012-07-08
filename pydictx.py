@@ -117,6 +117,7 @@ class IndexedList(list):
         else:
             list.__setitem__(self, i, item)
             self.parent.update_index([self._id], item)
+            self.parent.update_index([str(i), self._id], item)
     def unindexitem(self, i):
         value = self[i]
         if isinstance(value, IndexedDict):
