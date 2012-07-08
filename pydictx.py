@@ -104,6 +104,8 @@ class IndexedList(list):
         list.__init__(self, *args, **kwargs)
         self.parent = None
     def __setitem__(self, i, item):
+        if i < len(self):
+            self.unindexitem(i)
         if isinstance(item, dict):
             indexed_document = IndexedDict(item)
             indexed_document.set_parent(self.parent, self._id)
@@ -113,10 +115,19 @@ class IndexedList(list):
             indexed_list.set_parent(self.parent, self._id)
             list.__setitem__(self, i, indexed_list)
         else:
-            oldvalue = self[i]
-            self.parent.remove_index([self._id], oldvalue)
             list.__setitem__(self, i, item)
             self.parent.update_index([self._id], item)
+    def unindexitem(self, i):
+        value = self[i]
+        if isinstance(value, IndexedDict):
+            value.unindex()
+        elif isinstance(value, IndexedList):
+            value.unindex()
+        else:
+            self.parent.remove_index([self._id], value)
+    def unindex(self):
+        for i in xrange(len(self)):
+            self.unindexitem(i)
     def set_parent(self, parent, _id):
         self.parent = parent
         self._id = _id
@@ -128,6 +139,8 @@ class IndexedDict(dict):
         dict.__init__(self, *args, **kwargs)
         self.parent = None
     def __setitem__(self, key, value):
+        if key in self:
+            self.unindexitem(key)
         if isinstance(value, dict):
             indexed_document = IndexedDict(value)
             indexed_document.set_parent(self, key)
@@ -137,14 +150,19 @@ class IndexedDict(dict):
             indexed_list.set_parent(self, key)
             dict.__setitem__(self, key, indexed_list)
         else:
-            try:
-                oldvalue = self[key]
-            except:
-                pass
-            else:
-                self.remove_index([key], oldvalue)
             dict.__setitem__(self, key, value)
             self.update_index([key], value)
+    def unindexitem(self, key):
+        value = self[key]
+        if isinstance(value, IndexedDict):
+            value.unindex()
+        elif isinstance(value, IndexedList):
+            value.unindex()
+        else:
+            self.remove_index([key], value)
+    def unindex(self):
+        for key, value in self.iteritems():
+            self.unindexitem(key)
     def set_parent(self, parent, _id):
         self.parent = parent
         self._id = _id
@@ -247,7 +265,8 @@ if __name__ == "__main__":
         },
         {
             'name'        : 'Alien',
-            'blah'        : [{'hello': 1234}, "jkajskldf", [1, 2, 3]],
+            'stunts'      : [['Jackie', 'Chan'], ['Arnold', 'Schwarzenegger']],
+            'blah'        : [{'hello': 1234}, "jkajskldf", [1, 2, 3], ['a', 'a', 'a', 'a', [38209132, 895032235]]],
             'year'        : 1978,
             'rating'      : 4,
             'directors'   : ['Ridley Scott'],
@@ -293,14 +312,23 @@ if __name__ == "__main__":
 
     
     # change dictionary attributes
-    print movies['Avatar']['rating']
+    pprint(movies['Avatar']['rating'])
     movies['Avatar']['rating'] = 5
-    print movies['Avatar']['rating']
+    pprint(movies['Avatar']['rating'])
     
     # change list items
-    print movies['Avatar']['stars']
+    pprint(movies['Avatar']['stars'])
     movies['Avatar']['stars'][2] = "Tom Skerritt"
-    print movies['Avatar']['stars']
+    pprint(movies['Avatar']['stars'])
+    
+    
+    # change attribute from dict to int
+    pprint(movies['Prometheus']['blah'])
+    #movies['Prometheus']['blah'] = 1234567890
+    pprint(movies['Prometheus']['blah'])
+    
+    movies.insert({'name': 'fofoofooo', 'blah': 'the quick brown fox jumped over the lazy dog', 'foo': True})
     
     pprint(movies.indices)
+    
 
