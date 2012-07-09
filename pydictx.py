@@ -126,6 +126,7 @@ class IndexedList(list):
             value.unindex()
         else:
             self.parent.remove_index([self._id], value)
+            self.parent.remove_index([str(i), self._id], value)
     def unindex(self):
         for i in xrange(len(self)):
             self.unindexitem(i)
@@ -139,6 +140,10 @@ class IndexedDict(dict):
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
         self.parent = None
+    def __delitem__(self, key):
+        if key in self:
+            self.unindexitem(key)
+        dict.__delitem__(self, key)
     def __setitem__(self, key, value):
         if key in self:
             self.unindexitem(key)
@@ -267,7 +272,7 @@ if __name__ == "__main__":
         {
             'name'        : 'Alien',
             'stunts'      : [['Jackie', 'Chan'], ['Arnold', 'Schwarzenegger']],
-            'blah'        : [{'hello': 1234}, "jkajskldf", [1, 2, 3], ['a', 'a', 'a', 'a', [38209132, 895032235]]],
+            'blah'        : [{'hello': 1234}, "jkajskldf", [1, 2, 3], ['a', 'a', 'a', 'a', [.2, 895032235]]],
             'year'        : 1978,
             'rating'      : 4,
             'directors'   : ['Ridley Scott'],
@@ -329,6 +334,8 @@ if __name__ == "__main__":
     pprint(movies['Prometheus']['blah'])
     
     movies.insert({'name': 'fofoofooo', 'blah': 'the quick brown fox jumped over the lazy dog', 'foo': True})
+    
+    del movies['Alien']['blah']
     
     pprint(movies.indices)
     
