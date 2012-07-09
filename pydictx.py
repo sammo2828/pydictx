@@ -103,6 +103,19 @@ class IndexedList(list):
     def __init__(self, *args, **kwargs):
         list.__init__(self, *args, **kwargs)
         self.parent = None
+    def __delitem__(self, i):
+        self[i] # this is to raise IndexError if i is invalid
+        if i < 0:
+            i = len(self) + i
+        for j, item in enumerate(self[i:], i):
+            if not isinstance(item, dict) and not isinstance(item, list):
+                self.parent.remove_index([self._id], item)
+                self.parent.remove_index([str(i), self._id], item)
+        list.__delitem__(self, i)
+        for j, item in enumerate(self[i:], i):
+            if not isinstance(item, dict) and not isinstance(item, list):
+                self.parent.update_index([self._id], item)
+                self.parent.update_index([str(j), self._id], item)
     def __setitem__(self, i, item):
         if i < len(self):
             self.unindexitem(i)
@@ -324,7 +337,7 @@ if __name__ == "__main__":
     
     # change list items
     pprint(movies['Avatar']['stars'])
-    movies['Avatar']['stars'][2] = "Tom Skerritt"
+    #movies['Avatar']['stars'][2] = "Tom Skerritt"
     pprint(movies['Avatar']['stars'])
     
     
@@ -339,4 +352,6 @@ if __name__ == "__main__":
     
     pprint(movies.indices)
     
-
+    del movies['Prometheus']['stars'][1]
+    del movies['Alien']['stars'][0]
+    pprint(movies.indices)
