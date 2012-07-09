@@ -107,11 +107,16 @@ class IndexedList(list):
         self[i] # this is to raise IndexError if i is invalid
         if i < 0:
             i = len(self) + i
+        # unindex items to the right of the item being deleted
         for j, item in enumerate(self[i:], i):
             if not isinstance(item, dict) and not isinstance(item, list):
                 self.parent.remove_index([self._id], item)
                 self.parent.remove_index([str(i), self._id], item)
+        # unindex the item being deleted, including children
+        self.unindexitem(i)
+        # perform the delete
         list.__delitem__(self, i)
+        # re-index items to the right of the item being deleted
         for j, item in enumerate(self[i:], i):
             if not isinstance(item, dict) and not isinstance(item, list):
                 self.parent.update_index([self._id], item)
@@ -180,7 +185,7 @@ class IndexedDict(dict):
         else:
             self.remove_index([key], value)
     def unindex(self):
-        for key, value in self.iteritems():
+        for key in self.iterkeys():
             self.unindexitem(key)
     def set_parent(self, parent, _id):
         self.parent = parent
@@ -220,7 +225,11 @@ class dictx(dict):
             self.indices[_id][value].remove(key[-1])
             if not self.indices[_id][value]:
                 del self.indices[_id][value]
-        except:
+            if not self.indices[_id]:
+                del self.indices[_id]
+        except KeyError:
+            pass
+        except TypeError:
             pass
         
     def find(self, query):
@@ -354,4 +363,8 @@ if __name__ == "__main__":
     
     del movies['Prometheus']['stars'][1]
     del movies['Alien']['stars'][0]
+    pprint(movies.indices)
+    
+    print "delete item from list of type dict"
+    del movies['Prometheus']['blah'][0]
     pprint(movies.indices)
