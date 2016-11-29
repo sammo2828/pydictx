@@ -1,4 +1,4 @@
 pydictx
 =======
 
-Python Indexed Dictionary with MongoDB-style queries
+Python Indexed Dictionary with MongoDB-style queries!
